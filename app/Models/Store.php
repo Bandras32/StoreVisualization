@@ -9,6 +9,7 @@ class Store extends Model
     protected $table = 'Dim_Stores';
 
     protected $primaryKey = 'StoreID';
+    public $timestamps = false;
 
     public function orders()
     {

@@ -13,104 +13,138 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // Get the start and end dates from the request
         $startDate = Carbon::parse($request->get('start_date', now()->startOfMonth()->toDateString()))->startOfDay();
         $endDate = Carbon::parse($request->get('end_date', now()->endOfMonth()->toDateString()))->endOfDay();
 
-        // Sales per Store with date range filter (optimized join)
         $salesPerStore = Store::select('Dim_Stores.Name')
-            ->join('Fact_Orders', 'Dim_Stores.StoreID', '=', 'Fact_Orders.warehouse_id')
+            ->join('Fact_Orders', 'Dim_Stores.StoreID', '=', 'Fact_Orders.store_id')
             ->join('Dim_Products', 'Fact_Orders.product_id', '=', 'Dim_Products.productID')
-            ->selectRaw('Dim_Stores.Name, SUM(Fact_Orders.qty * Dim_Products.Unit_price) as total_sales')
+            ->selectRaw('Dim_Stores.Name, SUM(Fact_Orders.qty * Fact_Orders.price) as total_sales')
             ->whereBetween('Fact_Orders.created_at', [$startDate, $endDate])
             ->groupBy('Dim_Stores.Name')
             ->get();
 
-        // Prepare data for the dashboard
+        
         $salesPerStoreLabels = $salesPerStore->pluck('Name')->toArray();
         $salesPerStoreData = $salesPerStore->pluck('total_sales')->toArray();
 
-        // Sales per Product with a limit of the top 10
         $salesPerProduct = Product::select('Dim_Products.Name')
             ->join('Fact_Orders', 'Dim_Products.productID', '=', 'Fact_Orders.product_id')
-            ->selectRaw('Dim_Products.Name, SUM(Fact_Orders.qty * Dim_Products.Unit_price) as total_sales')
+            ->selectRaw('Dim_Products.Name, SUM(Fact_Orders.qty * Fact_Orders.price) as total_sales')
             ->groupBy('Dim_Products.Name')
             ->orderByDesc('total_sales')
             ->limit(10)
             ->get();
 
-        // Prepare product data
         $salesPerProductLabels = $salesPerProduct->pluck('Name')->toArray();
         $salesPerProductData = $salesPerProduct->pluck('total_sales')->toArray();
 
-        // Fetch sales data by month for the given date range with optimized query
         $salesByMonth = DB::table('Fact_Orders')
             ->selectRaw('YEAR(Fact_Orders.created_at) as year, MONTH(Fact_Orders.created_at) as month, SUM(Fact_Orders.qty * Dim_Products.Unit_price) as total_sales')
             ->join('Dim_Products', 'Fact_Orders.product_id', '=', 'Dim_Products.productID')
-            ->whereBetween(DB::raw('CAST(Fact_Orders.created_at AS DATE)'), [$startDate->toDateString(), $endDate->toDateString()])
+            ->whereBetween('Fact_Orders.created_at', [
+                $startDate->format('Y-m-d H:i:s'), 
+                $endDate->format('Y-m-d H:i:s')
+            ])
             ->groupBy(DB::raw('YEAR(Fact_Orders.created_at), MONTH(Fact_Orders.created_at)'))
             ->orderBy(DB::raw('YEAR(Fact_Orders.created_at), MONTH(Fact_Orders.created_at)'))
             ->get();
 
-        // Prepare monthly sales data (remove the loop and optimize by matching with grouped data)
         $allMonths = [];
         $monthlySales = [];
 
         $startMonth = $startDate->copy()->startOfMonth();
         $endMonth = $endDate->copy()->endOfMonth();
 
-        // Loop through months but directly reference sales data
         $currentMonth = $startMonth;
         while ($currentMonth <= $endMonth) {
             $monthLabel = $currentMonth->format('Y-m');
             $allMonths[] = $monthLabel;
 
-            $monthlySales[] = $salesByMonth->firstWhere(function($sale) use ($currentMonth) {
+            $monthlySales[] = $salesByMonth->firstWhere(function ($sale) use ($currentMonth) {
                 return $sale->year == $currentMonth->year && $sale->month == $currentMonth->month;
             })?->total_sales ?? 0;
 
             $currentMonth->addMonth();
         }
 
-        // Top 3 Stores by Total Sales (optimized join)
-        $topStores = Store::select('Dim_Stores.Name')
-            ->join('Fact_Orders', 'Dim_Stores.StoreID', '=', 'Fact_Orders.warehouse_id')
-            ->join('Dim_Products', 'Fact_Orders.product_id', '=', 'Dim_Products.productID')
-            ->selectRaw('Dim_Stores.Name, SUM(Fact_Orders.qty * Dim_Products.Unit_price) as total_sales')
-            ->whereBetween('Fact_Orders.created_at', [$startDate, $endDate])
-            ->groupBy('Dim_Stores.Name')
-            ->orderByDesc('total_sales')
-            ->limit(3)
+        $monthlyRevenues = DB::table('Fact_Orders as o')
+            ->join('Dim_Stores as s', 'o.store_id', '=', 's.StoreID')
+            ->join('Dim_Products as p', 'o.product_id', '=', 'p.ProductKey')
+            ->selectRaw('
+                s.StoreID, 
+                s.Name as StoreName, 
+                YEAR(o.created_at) as Year, 
+                MONTH(o.created_at) as Month, 
+                SUM(o.qty * p.Unit_price) as MonthlyRevenue
+            ')
+            ->whereBetween('o.created_at', [$startDate, $endDate])
+            ->groupBy('s.StoreID', 's.Name', DB::raw('YEAR(o.created_at)'), DB::raw('MONTH(o.created_at)'))
+            ->orderBy(DB::raw('YEAR(o.created_at)'))
+            ->orderBy(DB::raw('MONTH(o.created_at)'))
+            ->orderBy('s.StoreID')
             ->get();
 
-        $topStoresLabels = $topStores->pluck('Name')->toArray();
+        $months = $monthlyRevenues->map(fn($row) => sprintf('%d-%02d', $row->Year, $row->Month))->unique()->values();
+        $stores = $monthlyRevenues->pluck('StoreName')->unique();
 
-        // Seasonal Sales for Top 3 Stores (optimize this part by using batch queries)
-        $seasons = [
-            'Winter' => [12, 1, 2],
-            'Spring' => [3, 4, 5],
-            'Summer' => [6, 7, 8],
-            'Fall'   => [9, 10, 11],
-        ];
+        $groupedDatasets = $stores->map(function ($storeName) use ($monthlyRevenues, $months) {
+            $storeData = $monthlyRevenues->where('StoreName', $storeName);
 
-        $seasonalSales = [];
-        foreach ($topStoresLabels as $storeName) {
-            $storeSales = [];
-            foreach ($seasons as $season => $months) {
-                $sales = DB::table('Fact_Orders')
-                    ->join('Dim_Products', 'Fact_Orders.product_id', '=', 'Dim_Products.productID')
-                    ->join('Dim_Stores', 'Fact_Orders.warehouse_id', '=', 'Dim_Stores.StoreID')
-                    ->where('Dim_Stores.Name', $storeName)
-                    ->whereBetween('Fact_Orders.created_at', [$startDate, $endDate])
-                    ->whereIn(DB::raw('MONTH(Fact_Orders.created_at)'), $months)
-                    ->selectRaw('SUM(Fact_Orders.qty * Dim_Products.Unit_price) as total_sales')
-                    ->value('total_sales');
-                $storeSales[$season] = $sales ?? 0;
-            }
-            $seasonalSales[] = $storeSales;
-        }
+            $data = $months->map(function ($month) use ($storeData) {
+                $revenue = $storeData->firstWhere(fn($row) => sprintf('%d-%02d', $row->Year, $row->Month) === $month);
+                return $revenue ? $revenue->MonthlyRevenue : 0;
+            });
 
-        // Return view with optimized data
+            return [
+                'label' => $storeName,
+                'data' => $data,
+                'backgroundColor' => sprintf(
+                    'rgba(%d, %d, %d, 0.7)',
+                    rand(50, 255),
+                    rand(50, 255),
+                    rand(50, 255)
+                ),
+            ];
+        });
+
+        $paymentPreferences = DB::table('Fact_Orders')
+            ->select('payment_type', DB::raw('COUNT(*) as TotalPurchases'))
+            ->groupBy('payment_type')
+            ->whereBetween('Fact_Orders.created_at', [$startDate, $endDate])
+            ->get();
+
+        $topCustomers = DB::table('Fact_Orders')
+            ->join('Dim_Customers', 'Fact_Orders.customer_id', '=', 'Dim_Customers.CustomerID')
+            ->selectRaw('Dim_Customers.Name, SUM(Fact_Orders.qty * Fact_Orders.price) as TotalSpent')
+            ->groupBy('Dim_Customers.Name')
+            ->orderBy('TotalSpent', 'DESC')
+            ->whereBetween('Fact_Orders.created_at', [$startDate, $endDate])
+            ->limit(10)
+            ->get();
+
+
+        $subQuery = DB::table('Fact_Orders as o')
+            ->join('Dim_Customers as c', 'o.customer_id', '=', 'c.CustomerID')
+            ->join('Dim_Products as p', 'o.product_id', '=', 'p.ProductID')
+            ->select(
+                'c.Name as CustomerName',
+                'p.Name as ProductName',
+                DB::raw('SUM(o.qty) as TotalQuantity'),
+                DB::raw('ROW_NUMBER() OVER (PARTITION BY c.Name ORDER BY SUM(o.qty) DESC) as Rank')
+            )
+            ->whereBetween('o.created_at', [$startDate, $endDate])
+            ->groupBy('c.Name', 'p.Name');
+    
+         $topProductsPerCustomer = DB::table(DB::raw("({$subQuery->toSql()}) as sub"))
+            ->mergeBindings($subQuery)
+            ->where('Rank', '<=', 3)
+            ->orderBy('CustomerName')
+            ->orderBy('Rank')
+            ->paginate(10);
+    
+    
+
         return view('dashboard', compact(
             'salesPerStoreLabels',
             'salesPerStoreData',
@@ -120,8 +154,12 @@ class DashboardController extends Controller
             'monthlySales',
             'startDate',
             'endDate',
-            'topStoresLabels',
-            'seasonalSales'
+            'monthlyRevenues',
+            'months',
+            'groupedDatasets',
+            'paymentPreferences',
+            'topCustomers',
+            'topProductsPerCustomer'
         ));
     }
 }

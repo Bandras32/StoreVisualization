@@ -3,17 +3,17 @@
 @section('title', 'Customers')
 
 @section('header')
-    Customer List
+    Vásárló lista
 @endsection
 
 @section('content')
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Customer Records</h3>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Vásárlói adatok</h3>
 
             <form method="GET" action="{{ route('customers.index') }}" class="flex items-center space-x-4">
-                <input type="text" name="search" placeholder="Search Customers..." value="{{ request()->get('search') }}" class="px-4 py-2 border rounded-lg" />
-                <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg">Search</button>
+                <input type="text" name="search" placeholder="Vásárló keresés..." value="{{ request()->get('search') }}" class="px-4 py-2 border rounded-lg" />
+                <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg">Keresés</button>
             </form>
         </div>
         <div class="border-t border-gray-200">
@@ -21,8 +21,8 @@
                 <thead>
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Név</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Város</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     </tr>
                 </thead>

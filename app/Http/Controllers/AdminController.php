@@ -7,14 +7,13 @@ use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
+
     public function showUsers()
     {
         $users = User::paginate(5);
         return view('admin.users.index', ['users' => $users]);
-        //$users = User::all();
-        //return view('admin.users.index', compact('users'));
     }
-    
+
     public function updateRole(Request $request, User $user)
     {
         $request->validate([
@@ -25,5 +24,16 @@ class AdminController extends Controller
         $user->save();
 
         return redirect()->route('admin.users')->with('status', 'Role updated successfully!');
+    }
+
+    public function deleteUser(User $user)
+    {
+        if (auth()->id() === $user->id) {
+            return redirect()->route('admin.users')->with('error', 'You cannot delete your own account.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('admin.users')->with('success', 'User deleted successfully!');
     }
 }

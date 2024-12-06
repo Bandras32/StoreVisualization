@@ -17,33 +17,33 @@
                 <ul>
                     <li>
                         <a href="{{ route('dashboard') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('dashboard') ? 'bg-gray-700' : '' }}">
-                            Dashboard
+                            Kimutatások és riporotok
                         </a>
                     </li>
                         <li>
                             <a href="{{ route('customers.index') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('customers.*') ? 'bg-gray-700' : '' }}">
-                                Customers
+                                Vásárlók
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('products.index') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('products.*') ? 'bg-gray-700' : '' }}">
-                                Products
+                                Termékek
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('stores.index') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('stores.*') ? 'bg-gray-700' : '' }}">
-                                Stores
+                                Üzletek
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('orders.index') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('orders.*') ? 'bg-gray-700' : '' }}">
-                                Orders
+                                Eladások
                             </a>
                         </li>
                     @if (Auth::user()->role === 'admin') {{-- Show only for admin --}}
                         <li>
                             <a href="{{ route('admin.users') }}" class="block py-2.5 px-4 hover:bg-gray-700 {{ request()->routeIs('admin.users') ? 'bg-gray-700' : '' }}">
-                                User Management
+                                Adminisztrátori felület
                             </a>
                         </li>
                     @endif

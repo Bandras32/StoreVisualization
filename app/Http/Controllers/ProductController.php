@@ -16,7 +16,6 @@ class ProductController extends Controller
                 ->orWhere('ProductID', 'like', '%' . $search . '%')
                 ->orWhere('Unit', 'like', '%' . $search . '%')
                 ->orWhere('Unit_price', 'like', '%' . $search . '%')
-                ->orWhere('Vat', 'like', '%' . $search . '%')
                 ->paginate(10);
         } else {
             $products = Product::paginate(10);

@@ -10,16 +10,15 @@
     <div class="max-w-md w-full bg-white shadow-xl rounded-lg p-6 border border-green-300">
         <div class="text-center">
             <img src="{{ asset('images/logo.png') }}" alt="Grocery Logo" class="mx-auto mb-4 w-24 h-24 rounded-full border border-gray-300">
-            <h1 class="text-4xl font-bold text-green-700 mb-4">Welcome!</h1>
-            <p class="text-gray-700 mb-6">Explore grocery store insights with ease. Get started below:</p>
+            <h1 class="text-4xl font-bold text-green-700 mb-4">Üdvözlünk!</h1>
         </div>
 
         <div class="flex flex-col space-y-4">
             <a href="{{ route('login') }}" class="w-full text-center bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 shadow">
-                Login
+                Belépés
             </a>
             <a href="{{ route('register') }}" class="w-full text-center bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 shadow">
-                Register
+                Regisztráció
             </a>
         </div>
     </div>
